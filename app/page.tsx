@@ -8,6 +8,10 @@ import Support from './components/Support';
 import OrderHistory from './components/OrderHistory';
 import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
+import Recipes from './components/Recipes';
+import MealPlannerNew from './components/MealPlannerNew';
+import ProfilePage from './components/ProfilePage';
+
 import { useAuth } from './hooks/useAuth';
 
 export default function Home() {
@@ -15,7 +19,29 @@ export default function Home() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    // If user is logged in, redirect to dashboard
+    // Load current view from localStorage on mount
+    const savedView = localStorage.getItem('currentView');
+    if (savedView) {
+      setCurrentView(savedView);
+    }
+
+    // Check URL parameters for view
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam) {
+      setCurrentView(viewParam);
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save current view to localStorage whenever it changes
+    localStorage.setItem('currentView', currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    // If user is logged in and on auth page, redirect to dashboard
     if (!loading && user && currentView === 'auth') {
       setCurrentView('dashboard');
     }
@@ -29,10 +55,12 @@ export default function Home() {
     switch (currentView) {
       case 'dashboard':
         return <Dashboard />;
+      case 'recipes':
+        return <Recipes />;
+      case 'meal-planner':
+        return <MealPlannerNew />;
       case 'home':
         return <Meals />;
-      case 'planner':
-        return <Meals />; // Using Meals component for now, can be replaced with dedicated planner
       case 'shopping':
         return <Meals />; // Using Meals component for now, can be replaced with shopping list
       case 'auth':
@@ -43,6 +71,9 @@ export default function Home() {
         return <Support />;
       case 'orders':
         return <OrderHistory />;
+      case 'profile':
+        return <ProfilePage />;
+
       default:
         return <Dashboard />;
     }

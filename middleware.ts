@@ -53,9 +53,16 @@ export async function middleware(request: NextRequest) {
 
   // Define protected routes
   const protectedRoutes = [
-    '/api/meals',
     '/api/orders',
-    '/api/support'
+    '/api/support',
+    '/api/bmi-calculator',
+    '/api/protein-calculator',
+    '/api/exercise-tracker',
+    '/api/water-tracker',
+    '/api/goals',
+    '/api/meal-planner',
+    '/api/profile',
+    '/api/shopping-list'
   ];
 
   // Check if the current path is protected

@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState } from 'react';
-import { ChefHat, Mail, Lock, User, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChefHat, Mail, Lock, User, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface AuthProps {
@@ -11,12 +11,61 @@ interface AuthProps {
 const Auth: React.FC<AuthProps> = ({ onForgotPassword }) => {
   const { signIn } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+
+  const handleResendVerification = async () => {
+    if (!resendEmail) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    setResendLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resendEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess('Verification email sent! Please check your inbox.');
+        setResendEmail('');
+      } else {
+        setError(data.message || 'Failed to send verification email');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('verified') === 'true') {
+      setSuccess('Email verified successfully! You can now sign in.');
+      setIsSignUp(false);
+    } else if (urlParams.get('error') === 'invalid-token') {
+      setError('Invalid or expired verification link.');
+    } else if (urlParams.get('error') === 'verification-failed') {
+      setError('Email verification failed. Please try again.');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,22 +73,48 @@ const Auth: React.FC<AuthProps> = ({ onForgotPassword }) => {
     setError('');
 
     try {
-      // Simulate authentication (since backend is removed)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`/api/auth/${isSignUp ? 'register' : 'login'}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          ...(isSignUp && { fullName })
+        }),
+      });
 
-      // Create mock user data
-      const userData = {
-        id: Date.now().toString(),
-        email,
-        user_metadata: {
-          full_name: fullName || email.split('@')[0]
+      const data = await response.json();
+
+      if (response.ok) {
+        if (isSignUp) {
+          // Show verification message for signup
+          setShowVerificationMessage(true);
+          setEmail('');
+          setPassword('');
+          setFullName('');
+        } else {
+          // Store token in cookie for login
+          document.cookie = `token=${data.data.token}; path=/; max-age=604800`; // 7 days
+
+          // Store user data in localStorage
+          const userData = {
+            id: data.data.user.id,
+            email: data.data.user.email,
+            user_metadata: {
+              full_name: data.data.user.fullName
+            }
+          };
+          signIn(userData);
+          // Redirect to dashboard after successful login
+          window.location.href = '/?view=dashboard';
         }
-      };
-
-      signIn(userData);
-      alert(isSignUp ? 'Account created successfully!' : 'Signed in successfully!');
+      } else {
+        setError(data.message || 'Authentication failed');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Auth failed');
+      setError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,7 +142,55 @@ const Auth: React.FC<AuthProps> = ({ onForgotPassword }) => {
             </div>
           )}
 
-          <div className="space-y-4">
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md text-sm flex items-center">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {success}
+            </div>
+          )}
+
+          {showVerificationMessage && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-600 px-4 py-3 rounded-md text-sm">
+              <div className="flex items-center mb-2">
+                <Mail className="h-4 w-4 mr-2" />
+                <strong>Check your email!</strong>
+              </div>
+              <p>We've sent a verification link to your email address. Please click the link to verify your account and then return here to sign in.</p>
+              <div className="mt-4 space-y-3">
+                <div className="flex space-x-2">
+                  <input
+                    type="email"
+                    placeholder="Enter email to resend verification"
+                    value={resendEmail}
+                    onChange={(e) => setResendEmail(e.target.value)}
+                    className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Sending...' : 'Resend'}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowVerificationMessage(false);
+                    setIsSignUp(false);
+                    setResendEmail('');
+                  }}
+                  className="text-blue-600 hover:text-blue-800 underline text-sm"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!showVerificationMessage && (
+            <div className="space-y-4">
             {isSignUp && (
               <div>
                 <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -135,41 +258,50 @@ const Auth: React.FC<AuthProps> = ({ onForgotPassword }) => {
                 />
               </div>
             </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            >
-              {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
-            </button>
-          </div>
-
-          {!isSignUp && (
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={onForgotPassword}
-                className="text-sm text-orange-600 hover:text-orange-500 transition-colors duration-200"
-              >
-                Forgot your password?
-              </button>
             </div>
           )}
 
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="font-medium text-orange-600 hover:text-orange-500 transition-colors duration-200"
-            >
-              {isSignUp
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
-            </button>
-          </div>
+          {!showVerificationMessage && (
+            <>
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                >
+                  {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
+                </button>
+              </div>
+
+              {!isSignUp && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={onForgotPassword}
+                    className="text-sm text-orange-600 hover:text-orange-500 transition-colors duration-200"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
+              )}
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setError('');
+                    setSuccess('');
+                  }}
+                  className="font-medium text-orange-600 hover:text-orange-500 transition-colors duration-200"
+                >
+                  {isSignUp
+                    ? 'Already have an account? Sign in'
+                    : "Don't have an account? Sign up"}
+                </button>
+              </div>
+            </>
+          )}
         </form>
       </div>
     </div>

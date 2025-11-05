@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '../../../lib/db';
+import User from '../../../lib/models/User';
 import jwt from 'jsonwebtoken';
 
 export async function GET(request: NextRequest) {
@@ -22,26 +23,24 @@ export async function GET(request: NextRequest) {
       userId = decoded.id;
     }
 
-    // Mock exercise data for now
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    
-    const mockData = [
-      { _id: '1', userId, date: today, type: 'running', duration: 30, caloriesBurned: 250 },
-      { _id: '2', userId, date: today, type: 'weight_training', duration: 15, caloriesBurned: 70 },
-      { _id: '3', userId, date: yesterday, type: 'running', duration: 25, caloriesBurned: 200 },
-      { _id: '4', userId, date: new Date(Date.now() - 2*86400000).toISOString().split('T')[0], type: 'cycling', duration: 45, caloriesBurned: 300 },
-      { _id: '5', userId, date: new Date(Date.now() - 3*86400000).toISOString().split('T')[0], type: 'swimming', duration: 40, caloriesBurned: 280 },
-      { _id: '6', userId, date: new Date(Date.now() - 4*86400000).toISOString().split('T')[0], type: 'running', duration: 35, caloriesBurned: 290 }
-    ];
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     return NextResponse.json({
       success: true,
-      data: mockData
+      data: {
+        email: user.email,
+        age: user.age || 0,
+        weight: user.weight || 0,
+        height: user.height || 0,
+        gender: user.gender || 'male'
+      }
     });
 
   } catch (error) {
-    console.error('Error fetching exercise data:', error);
+    console.error('Error fetching profile:', error);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }
@@ -49,7 +48,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
     await connectDB();
 
@@ -69,24 +68,31 @@ export async function POST(request: NextRequest) {
       userId = decoded.id;
     }
 
-    const { type, duration, caloriesBurned, date } = await request.json();
+    const { age, weight, height, gender } = await request.json();
 
-    const exerciseEntry = {
-      _id: Date.now().toString(),
+    const user = await User.findByIdAndUpdate(
       userId,
-      type,
-      duration,
-      caloriesBurned,
-      date: date || new Date().toISOString().split('T')[0]
-    };
+      { age, weight, height, gender },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     return NextResponse.json({
       success: true,
-      data: exerciseEntry
+      data: {
+        email: user.email,
+        age: user.age,
+        weight: user.weight,
+        height: user.height,
+        gender: user.gender
+      }
     });
 
   } catch (error) {
-    console.error('Error saving exercise data:', error);
+    console.error('Error updating profile:', error);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }

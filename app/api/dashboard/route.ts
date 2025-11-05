@@ -18,7 +18,18 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+
+    // For mock tokens, create a mock user ID
+    let userId: string;
+    if (token.startsWith('mock-jwt-')) {
+      // Extract user ID from mock token
+      const parts = token.split('-');
+      userId = parts[2];
+    } else {
+      // Verify real JWT
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      userId = decoded.id;
+    }
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'this-week';
@@ -46,27 +57,27 @@ export async function GET(request: NextRequest) {
 
     // Fetch meals within the period
     const meals = await Meal.find({
-      userId: decoded.id,
+      userId,
       createdAt: { $gte: startDate }
     }).sort({ createdAt: -1 });
 
     // Fetch water intake within the period
     const waterData = await WaterIntake.find({
-      userId: decoded.id,
+      userId,
       date: { $gte: startDate }
     }).sort({ date: 1 });
 
     // Fetch exercise data within the period
     const exerciseData = await Exercise.find({
-      userId: decoded.id,
+      userId,
       date: { $gte: startDate }
     }).sort({ date: 1 });
 
     // Fetch user goals
-    let goals = await UserGoals.findOne({ userId: decoded.id });
+    let goals = await UserGoals.findOne({ userId });
     if (!goals) {
       goals = new UserGoals({
-        userId: decoded.id,
+        userId,
         calorieGoal: 2000,
         waterGoal: 2000,
         exerciseGoal: 150

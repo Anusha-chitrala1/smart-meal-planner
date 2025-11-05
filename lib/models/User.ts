@@ -12,6 +12,11 @@ export interface IUser extends Document {
   emailVerificationExpires?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
+  profileImage?: string;
+  height?: number; // in cm
+  weight?: number; // in kg
+  age?: number;
+  gender?: 'male' | 'female';
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -48,7 +53,16 @@ const UserSchema: Schema = new Schema({
   emailVerificationToken: String,
   emailVerificationExpires: Date,
   passwordResetToken: String,
-  passwordResetExpires: Date
+  passwordResetExpires: Date,
+  profileImage: String,
+  height: Number,
+  weight: Number,
+  age: Number,
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+    default: 'male'
+  }
 }, {
   timestamps: true
 });

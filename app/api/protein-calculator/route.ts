@@ -14,7 +14,18 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+
+    // For mock tokens, create a mock user ID
+    let userId: string;
+    if (token.startsWith('mock-jwt-')) {
+      // Extract user ID from mock token
+      const parts = token.split('-');
+      userId = parts[2];
+    } else {
+      // Verify real JWT
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      userId = decoded.id;
+    }
 
     const { weight, activityLevel, goal, gender } = await request.json();
 
@@ -37,17 +48,19 @@ export async function POST(request: NextRequest) {
     const weightLbs = weight * 2.20462; // Convert kg to lbs
     const recommendedProtein = Math.round(weightLbs * parseFloat(goal));
 
-    // Save to user profile
-    await User.findByIdAndUpdate(decoded.id, {
-      proteinCalculator: {
-        weight,
-        activityLevel,
-        goal,
-        gender,
-        recommendedProtein,
-        lastCalculated: new Date()
-      }
-    });
+    // Save to user profile - skip for mock users
+    if (!token.startsWith('mock-jwt-')) {
+      await User.findByIdAndUpdate(userId, {
+        proteinCalculator: {
+          weight,
+          activityLevel,
+          goal,
+          gender,
+          recommendedProtein,
+          lastCalculated: new Date()
+        }
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -79,10 +92,24 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
 
-    // Get user's protein calculator data
-    const user = await User.findById(decoded.id).select('proteinCalculator');
+    // For mock tokens, create a mock user ID
+    let userId: string;
+    if (token.startsWith('mock-jwt-')) {
+      // Extract user ID from mock token
+      const parts = token.split('-');
+      userId = parts[2];
+    } else {
+      // Verify real JWT
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      userId = decoded.id;
+    }
+
+    // Get user's protein calculator data - return null for mock users
+    let user = null;
+    if (!token.startsWith('mock-jwt-')) {
+      user = await User.findById(userId).select('proteinCalculator');
+    }
 
     return NextResponse.json({
       success: true,

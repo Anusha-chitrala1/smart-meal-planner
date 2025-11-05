@@ -23,6 +23,9 @@ const Support: React.FC = () => {
   const [newTicket, setNewTicket] = useState({
     subject: '',
     message: '',
+    email: '',
+    contactNumber: '',
+    issueDescription: '',
   });
 
   const API_BASE = 'http://localhost:5000/api/support';
@@ -32,21 +35,24 @@ const Support: React.FC = () => {
   }, []);
 
   const loadTickets = async () => {
-    const token = localStorage.getItem('token');
+    const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
     if (!token) {
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch(API_BASE, {
-        headers: { 'Authorization': `Bearer ${token}` },
+      const response = await fetch('/api/support', {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
       });
 
       if (!response.ok) throw new Error('Failed to load tickets');
 
-      const data = await response.json();
-      setTickets(data);
+      const result = await response.json();
+      setTickets(result.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load tickets');
     } finally {
@@ -56,30 +62,41 @@ const Support: React.FC = () => {
 
   const createTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
     if (!token) {
       setError('Please login first');
       return;
     }
 
     try {
-      const response = await fetch(API_BASE, {
+      const response = await fetch('/api/support', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(newTicket),
+        body: JSON.stringify({
+          subject: newTicket.subject,
+          message: `${newTicket.issueDescription}\n\nAdditional Details: ${newTicket.message}`,
+          email: newTicket.email,
+          contactNumber: newTicket.contactNumber,
+          priority: 'medium',
+          category: 'general'
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to create ticket');
 
-      const data = await response.json();
-      setTickets([data, ...tickets]);
+      const result = await response.json();
+      setTickets([result.data, ...tickets]);
       setShowCreateTicket(false);
-      setNewTicket({ subject: '', message: '' });
+      setNewTicket({ subject: '', message: '', email: '', contactNumber: '', issueDescription: '' });
+      
+      // Show success message
+      alert('Support ticket created successfully! We will respond to your email within 24 hours.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create ticket');
+      alert('Error creating support ticket. Please try again or contact us directly at anushachitrala01@gmail.com');
     }
   };
 
@@ -148,10 +165,55 @@ const Support: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-green-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Contact Information */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <MessageCircle className="h-8 w-8 text-orange-500" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Email Support</h3>
+                <p className="text-sm text-gray-600">We'll respond within 24 hours</p>
+              </div>
+            </div>
+            <a href="mailto:anushachitrala01@gmail.com" className="text-orange-600 font-medium hover:text-orange-700">
+            anushachitrala01@gmail.com
+            </a>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <MessageCircle className="h-8 w-8 text-green-500" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Phone Support</h3>
+                <p className="text-sm text-gray-600">Mon-Fri, 9AM-6PM EST</p>
+              </div>
+            </div>
+            <a href="tel:+15551234567" className="text-green-600 font-medium hover:text-green-700">
+              +1 (555) 123-4567
+            </a>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <Plus className="h-8 w-8 text-blue-500" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Create Ticket</h3>
+                <p className="text-sm text-gray-600">Track your support requests</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowCreateTicket(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+            >
+              New Ticket
+            </button>
+          </div>
+        </div>
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Support Center</h1>
-            <p className="text-gray-600 mt-2">Get help with your orders and account</p>
+            <p className="text-gray-600 mt-2">Get help with your Smart Meal Planner experience</p>
           </div>
           <button
             onClick={() => setShowCreateTicket(true)}
@@ -276,14 +338,48 @@ const Support: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                  <textarea
-                    rows={5}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
                     required
+                    value={newTicket.email}
+                    onChange={(e) => setNewTicket({ ...newTicket, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="your.email@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                  <input
+                    type="tel"
+                    value={newTicket.contactNumber}
+                    onChange={(e) => setNewTicket({ ...newTicket, contactNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Issue Description</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={newTicket.issueDescription}
+                    onChange={(e) => setNewTicket({ ...newTicket, issueDescription: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="Please describe the issue you're experiencing..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Additional Message</label>
+                  <textarea
+                    rows={3}
                     value={newTicket.message}
                     onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="Please provide detailed information about your issue..."
+                    placeholder="Any additional details..."
                   />
                 </div>
 

@@ -2,15 +2,17 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IMeal extends Document {
   _id: string;
+  userId: string;
   name: string;
+  description?: string;
   protein: number;
   carbs: number;
   fat: number;
   calories: number;
   category: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   ingredients: string[];
+  instructions?: string[];
   image?: string;
-  instructions?: string;
   prepTime?: number;
   cookTime?: number;
   servings?: number;
@@ -20,10 +22,19 @@ export interface IMeal extends Document {
 }
 
 const MealSchema: Schema = new Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   name: {
     type: String,
     required: [true, 'Please add a meal name'],
     maxlength: [100, 'Name can not be more than 100 characters']
+  },
+  description: {
+    type: String,
+    required: false
   },
   protein: {
     type: Number,
@@ -58,10 +69,10 @@ const MealSchema: Schema = new Schema({
     type: String,
     required: false
   },
-  instructions: {
+  instructions: [{
     type: String,
     required: false
-  },
+  }],
   prepTime: {
     type: Number,
     required: false,

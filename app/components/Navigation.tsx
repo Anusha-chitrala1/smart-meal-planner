@@ -12,18 +12,27 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut();
-    onViewChange('auth');
-    // Force page reload to clear any cached state
-    window.location.reload();
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+      await signOut();
+      onViewChange('auth');
+      // Force page reload to clear any cached state
+      window.location.reload();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still proceed with sign out even if API call fails
+      await signOut();
+      onViewChange('auth');
+      window.location.reload();
+    }
   };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'home', label: 'Recipes', icon: ChefHat },
-    { id: 'planner', label: 'Meal Planner', icon: Calendar },
-    { id: 'shopping', label: 'Shopping List', icon: ShoppingCart },
-    { id: 'orders', label: 'Orders', icon: Package },
+    { id: 'recipes', label: 'Recipes', icon: ChefHat },
+    { id: 'meal-planner', label: 'Meal Planner', icon: Calendar },
     { id: 'support', label: 'Support', icon: MessageCircle },
   ];
 
@@ -62,10 +71,13 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <User className="h-5 w-5 text-gray-500" />
-                  <span className="text-gray-700">{user.user_metadata?.full_name || user.email}</span>
-                </div>
+                <button
+                  onClick={() => onViewChange('profile')}
+                  className="flex items-center space-x-2 text-gray-700 hover:text-orange-600 px-3 py-2 rounded-md transition-colors duration-200"
+                >
+                  <User className="h-5 w-5" />
+                  <span>{user.user_metadata?.full_name || user.email?.split('@')[0]}</span>
+                </button>
                 <button
                   onClick={handleSignOut}
                   className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
@@ -122,10 +134,16 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
               <div className="border-t border-gray-200 pt-4">
                 {user ? (
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2 px-3 py-2">
-                      <User className="h-5 w-5 text-gray-500" />
-                      <span className="text-gray-700 text-sm">{user.user_metadata?.full_name || user.email}</span>
-                    </div>
+                    <button
+                      onClick={() => {
+                        onViewChange('profile');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="flex items-center space-x-2 w-full text-gray-700 hover:text-orange-600 px-3 py-2 rounded-md transition-colors duration-200"
+                    >
+                      <User className="h-5 w-5" />
+                      <span>{user.user_metadata?.full_name || user.email?.split('@')[0]}</span>
+                    </button>
                     <button
                       onClick={handleSignOut}
                       className="flex items-center space-x-2 w-full bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
